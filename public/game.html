@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catan Online – Game</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="game-page">
+
+  <!-- Top bar -->
+  <header id="top-bar">
+    <span id="room-label"></span>
+    <span id="phase-label"></span>
+    <span id="turn-label"></span>
+  </header>
+
+  <!-- Main layout -->
+  <div id="game-layout">
+
+    <!-- Left: player panels -->
+    <aside id="players-panel"></aside>
+
+    <!-- Center: board -->
+    <main id="board-wrap">
+      <svg id="board-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+
+      <!-- Dice display -->
+      <div id="dice-display">
+        <span class="die" id="die1">–</span>
+        <span class="die" id="die2">–</span>
+      </div>
+    </main>
+
+    <!-- Right: actions + log -->
+    <aside id="actions-panel">
+      <div id="action-area">
+        <p id="action-hint"></p>
+        <div id="action-buttons"></div>
+      </div>
+
+      <div id="hand-area">
+        <h3>Your Hand</h3>
+        <div id="resource-display"></div>
+        <div id="dev-card-display"></div>
+      </div>
+
+      <div id="trade-area" class="hidden">
+        <h3>Trade</h3>
+        <div id="trade-content"></div>
+      </div>
+
+      <div id="log-area">
+        <h3>Log</h3>
+        <ul id="log-list"></ul>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- Modal overlay for dialogs -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal-box">
+      <p id="modal-title"></p>
+      <div id="modal-content"></div>
+      <button id="modal-cancel" class="btn-secondary">Cancel</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

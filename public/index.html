@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catan Online</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="lobby-page">
+  <div class="lobby-container">
+    <h1 class="logo">CATAN</h1>
+    <p class="tagline">Online Multiplayer</p>
+
+    <div class="card" id="join-card">
+      <input id="name-input" type="text" placeholder="Your name" maxlength="20" autocomplete="off">
+      <input id="room-input" type="text" placeholder="Room code (e.g. ABCD)" maxlength="6" autocomplete="off" style="text-transform:uppercase">
+      <button id="join-btn" class="btn-primary">Join / Create Room</button>
+    </div>
+
+    <div class="card hidden" id="lobby-card">
+      <h2 id="room-title"></h2>
+      <ul id="player-list"></ul>
+      <p id="lobby-status"></p>
+      <button id="start-btn" class="btn-primary hidden">Start Game</button>
+      <button id="copy-btn" class="btn-secondary">Copy Room Code</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/lobby.js"></script>
+</body>
+</html>
