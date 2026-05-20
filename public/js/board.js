@@ -31,6 +31,10 @@ const PORT_COLORS = {
   sheep: '#7cbb4a', wheat: '#d4a017', ore: '#607080'
 };
 
+const PORT_ICONS = {
+  wood: '🌲', brick: '🧱', sheep: '🐑', wheat: '🌾', ore: '⛰'
+};
+
 const DOT_COUNTS = { 2:1, 3:2, 4:2, 5:3, 6:4, 8:4, 9:3, 10:2, 11:2, 12:1 };
 
 class CatanBoard {
@@ -83,12 +87,21 @@ class CatanBoard {
       defs.appendChild(g);
     }
 
-    // Ocean radial gradient
-    const ocean = this._el('radialGradient', { id: 'grad-ocean', cx: '50%', cy: '50%', r: '72%' });
-    const o1 = this._el('stop'); o1.setAttribute('offset', '0%');   o1.setAttribute('stop-color', '#3498c0');
-    const o2 = this._el('stop'); o2.setAttribute('offset', '100%'); o2.setAttribute('stop-color', '#0e4a72');
+    // Ocean gradient — userSpaceOnUse so corners stay consistent
+    const diag = Math.sqrt(SVG_W * SVG_W + SVG_H * SVG_H);
+    const ocean = this._el('radialGradient', {
+      id: 'grad-ocean', gradientUnits: 'userSpaceOnUse',
+      cx: CX, cy: CY, r: diag * 0.52
+    });
+    const o1 = this._el('stop'); o1.setAttribute('offset', '0%');   o1.setAttribute('stop-color', '#2e8fbd');
+    const o2 = this._el('stop'); o2.setAttribute('offset', '100%'); o2.setAttribute('stop-color', '#1460a0');
     ocean.append(o1, o2);
     defs.appendChild(ocean);
+
+    // Clip path to keep waves inside SVG border
+    const wc = this._el('clipPath', { id: 'wave-clip' });
+    wc.appendChild(this._el('rect', { x: 8, y: 8, width: SVG_W - 16, height: SVG_H - 16 }));
+    defs.appendChild(wc);
 
     // Drop shadow for number tokens
     const shadow = this._el('filter', { id: 'token-shadow', x: '-40%', y: '-40%', width: '180%', height: '180%' });
@@ -119,8 +132,8 @@ class CatanBoard {
       x: 0, y: 0, width: SVG_W, height: SVG_H, fill: 'url(#grad-ocean)'
     }));
 
-    // Wave lines on water (decorative)
-    const waveLyr = this._el('g', { opacity: '0.12' });
+    // Wave lines on water (decorative, clipped to SVG interior)
+    const waveLyr = this._el('g', { opacity: '0.12', 'clip-path': 'url(#wave-clip)' });
     for (let wy = 30; wy < SVG_H; wy += 28) {
       const wave = this._el('path', { stroke: '#fff', 'stroke-width': '1.5', fill: 'none' });
       let d = `M 0 ${wy}`;
@@ -222,38 +235,50 @@ class CatanBoard {
       const x1 = this.px(v1.x), y1 = this.py(v1.y);
       const x2 = this.px(v2.x), y2 = this.py(v2.y);
       const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      const col = PORT_COLORS[port.type] || '#ccc';
 
-      // Dock lines from each vertex endpoint outward toward ocean
+      // Dock line + pier end dots
       const pline = this._el('line', { x1, y1, x2, y2 }, 'port-line');
-      pline.style.stroke = PORT_COLORS[port.type] || '#ccc';
+      pline.style.stroke = col;
       portLyr.appendChild(pline);
+      for (const [px, py] of [[x1,y1],[x2,y2]]) {
+        portLyr.appendChild(this._el('circle', { cx: px, cy: py, r: 4, fill: col }));
+      }
 
-      // Outer badge ring for contrast
+      // Badge background
       portLyr.appendChild(this._el('circle', {
-        cx: mx, cy: my, r: 15,
-        fill: '#1a3a52', stroke: PORT_COLORS[port.type] || '#ccc', 'stroke-width': '2'
-      }));
-      // Colored fill circle
-      portLyr.appendChild(this._el('circle', {
-        cx: mx, cy: my, r: 12,
-        fill: PORT_COLORS[port.type] || '#ccc', opacity: '0.9'
+        cx: mx, cy: my, r: 18,
+        fill: '#0e2a40', stroke: col, 'stroke-width': '2.5'
       }));
 
-      const label = this._el('text', { x: mx, y: my + 1 }, 'port-label');
-      label.textContent = port.type === '3:1' ? '3:1' : '2:1';
-      const dark = port.type === 'wheat' || port.type === '3:1' || port.type === 'sheep';
-      label.style.fill = dark ? '#222' : '#fff';
-      label.style.fontSize = '9px';
-      label.style.fontWeight = '800';
-      portLyr.appendChild(label);
-
-      // Small resource initial on port (below the ratio)
       if (port.type !== '3:1') {
-        const sub = this._el('text', { x: mx, y: my + 10 }, 'port-label');
-        sub.textContent = port.type[0].toUpperCase();
-        sub.style.fill = dark ? '#333' : 'rgba(255,255,255,0.75)';
-        sub.style.fontSize = '7px';
-        portLyr.appendChild(sub);
+        // Resource emoji — large, centered above ratio
+        const icon = this._el('text', { x: mx, y: my - 3 });
+        icon.style.cssText = 'font-size:15px;text-anchor:middle;dominant-baseline:middle;pointer-events:none';
+        icon.textContent = PORT_ICONS[port.type];
+        portLyr.appendChild(icon);
+
+        // "2:1" ratio below
+        const ratio = this._el('text', { x: mx, y: my + 12 }, 'port-label');
+        ratio.textContent = '2:1';
+        ratio.style.fontSize = '9px';
+        ratio.style.fontWeight = '800';
+        ratio.style.fill = '#eee';
+        portLyr.appendChild(ratio);
+      } else {
+        // 3:1 — big ratio text + "any"
+        const ratio = this._el('text', { x: mx, y: my - 1 }, 'port-label');
+        ratio.textContent = '3:1';
+        ratio.style.fontSize = '11px';
+        ratio.style.fontWeight = '800';
+        ratio.style.fill = '#f5d060';
+        portLyr.appendChild(ratio);
+
+        const any = this._el('text', { x: mx, y: my + 11 }, 'port-label');
+        any.textContent = 'any';
+        any.style.fontSize = '8px';
+        any.style.fill = '#d4b84a';
+        portLyr.appendChild(any);
       }
     }
 
@@ -281,14 +306,27 @@ class CatanBoard {
     // ── Vertices (settlements / cities) ──
     for (const v of vertices) {
       const vx = this.px(v.x), vy = this.py(v.y);
+      const interactive = this.interactiveVertices.has(v.id);
 
       if (v.building === 'settlement') {
-        vertexLyr.appendChild(this._drawSettlement(vx, vy, playerColors[v.player]));
+        // Pulse glow when this settlement can be upgraded
+        if (interactive) {
+          vertexLyr.appendChild(this._el('circle', { cx: vx, cy: vy, r: 22 }, 'upgrade-glow'));
+        }
+        const s = this._drawSettlement(vx, vy, playerColors[v.player]);
+        vertexLyr.appendChild(s);
+        if (interactive) {
+          // Large transparent hit-circle on top for easy clicking
+          const hit = this._el('circle', { cx: vx, cy: vy, r: 22, fill: 'transparent' });
+          hit.style.cursor = 'pointer';
+          hit.addEventListener('click', () => this.onVertexClick && this.onVertexClick(v.id));
+          vertexLyr.appendChild(hit);
+        }
       } else if (v.building === 'city') {
         vertexLyr.appendChild(this._drawCity(vx, vy, playerColors[v.player]));
       } else {
-        const dot = this._el('circle', { cx: vx, cy: vy, r: 6 }, 'vertex-dot');
-        if (this.interactiveVertices.has(v.id)) {
+        const dot = this._el('circle', { cx: vx, cy: vy, r: interactive ? 9 : 6 }, 'vertex-dot');
+        if (interactive) {
           dot.classList.add('interactive');
           dot.addEventListener('click', () => this.onVertexClick && this.onVertexClick(v.id));
         } else {

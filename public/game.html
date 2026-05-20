@@ -13,13 +13,20 @@
     <span id="room-label"></span>
     <span id="phase-label"></span>
     <span id="turn-label"></span>
+    <button id="music-btn" class="btn-secondary btn-small" style="margin-left:auto" title="Toggle music">♪ Music</button>
   </header>
 
   <!-- Main layout -->
   <div id="game-layout">
 
-    <!-- Left: player panels -->
-    <aside id="players-panel"></aside>
+    <!-- Left: player panels + log -->
+    <aside id="players-panel">
+      <div id="player-cards"></div>
+      <div id="log-area">
+        <h3>Log</h3>
+        <ul id="log-list"></ul>
+      </div>
+    </aside>
 
     <!-- Center: board -->
     <main id="board-wrap">
@@ -49,11 +56,6 @@
         <h3>Trade</h3>
         <div id="trade-content"></div>
       </div>
-
-      <div id="log-area">
-        <h3>Log</h3>
-        <ul id="log-list"></ul>
-      </div>
     </aside>
 
   </div>
@@ -69,6 +71,7 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="js/board.js"></script>
+  <script src="js/music.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

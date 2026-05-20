@@ -82,9 +82,17 @@ input[type=text]:focus { border-color: var(--accent); }
 
 /* Left panel */
 #players-panel {
-  background: var(--surface); overflow-y: auto; padding: 10px;
-  display: flex; flex-direction: column; gap: 8px;
+  background: var(--surface); overflow: hidden;
+  display: flex; flex-direction: column;
   border-right: 1px solid var(--surface2);
+}
+#player-cards {
+  padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  overflow-y: auto; flex-shrink: 0; max-height: 52%;
+}
+#log-area {
+  flex: 1; overflow-y: auto; padding: 8px 10px;
+  border-top: 1px solid var(--surface2); min-height: 0;
 }
 
 .player-card {
@@ -147,15 +155,18 @@ input[type=text]:focus { border-color: var(--accent); }
   color: var(--text2); margin-bottom: 6px;
 }
 
+/* Emoji resource hand */
 #resource-display {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 8px;
+  display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px;
 }
-.res-row {
-  display: flex; align-items: center; justify-content: space-between;
-  background: var(--surface2); border-radius: 4px; padding: 3px 8px; font-size: 13px;
+.res-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--surface2); border-radius: 8px; padding: 5px 4px;
+  flex: 1; min-width: 36px; transition: opacity .2s;
 }
-.res-label { display: flex; align-items: center; gap: 6px; }
-.res-icon { width: 10px; height: 10px; border-radius: 2px; }
+.res-item.zero { opacity: 0.28; }
+.res-emoji { font-size: 18px; line-height: 1.1; }
+.res-count { font-size: 13px; font-weight: 800; margin-top: 2px; color: var(--text); }
 
 #dev-card-display { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .dev-card {
@@ -172,9 +183,20 @@ input[type=text]:focus { border-color: var(--accent); }
 }
 .trade-row { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0; }
 
-/* Log */
-#log-list { list-style: none; font-size: 12px; color: var(--text2); }
-#log-list li { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+/* Log (left panel) */
+#log-list { list-style: none; font-size: 11px; color: var(--text2); }
+#log-list li { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.05); line-height: 1.4; }
+
+/* Upgrade-to-city settlement glow */
+@keyframes upgrade-pulse {
+  0%, 100% { opacity: 0.35; }
+  50%       { opacity: 0.85; }
+}
+.upgrade-glow {
+  fill: gold; stroke: gold; stroke-width: 2;
+  animation: upgrade-pulse 0.9s ease-in-out infinite;
+  pointer-events: none;
+}
 
 /* ── SVG board elements ────────────────────────────────────────────── */
 .hex-tile { stroke: rgba(0,0,0,.45); stroke-width: 2; cursor: default; }
@@ -266,7 +288,9 @@ input[type=number]:focus { border-color: var(--accent); }
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   #game-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
-  #players-panel { flex-direction: row; overflow-x: auto; max-height: 110px; }
+  #players-panel { flex-direction: row; overflow-x: auto; max-height: 110px; flex-shrink: 0; }
+  #player-cards { flex-direction: row; max-height: none; overflow-x: auto; overflow-y: hidden; }
+  #log-area { display: none; }
   #board-wrap { min-height: 50vh; }
   #actions-panel { max-height: 200px; }
 }

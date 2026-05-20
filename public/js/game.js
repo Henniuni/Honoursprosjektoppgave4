@@ -3,8 +3,10 @@ const socket = io();
 
 const RESOURCES = ['wood', 'brick', 'sheep', 'wheat', 'ore'];
 const RES_LABELS = { wood:'Wood', brick:'Brick', sheep:'Sheep', wheat:'Wheat', ore:'Ore' };
+const RES_ICONS  = { wood:'🌲', brick:'🧱', sheep:'🐑', wheat:'🌾', ore:'⛰' };
 const RES_COLORS = { wood:'#4a7c2f', brick:'#b5451b', sheep:'#7cbb4a', wheat:'#d4a017', ore:'#607080' };
 const DEV_LABELS = { knight:'Knight', vp:'Victory Point', roadBuilding:'Road Building', yearOfPlenty:'Year of Plenty', monopoly:'Monopoly' };
+const DEV_ICONS  = { knight:'⚔', vp:'⭐', roadBuilding:'🛤', yearOfPlenty:'✨', monopoly:'💰' };
 
 let board = null;
 let state = null;
@@ -17,6 +19,19 @@ roomId = new URLSearchParams(window.location.search).get('room') ||
          localStorage.getItem('catanRoom') || '';
 
 document.getElementById('room-label').textContent = roomId ? `Room: ${roomId}` : '';
+
+// ── Music ─────────────────────────────────────────────────────────────────────
+const musicBtn = document.getElementById('music-btn');
+musicBtn.addEventListener('click', () => {
+  const on = CatanMusic.toggle();
+  musicBtn.textContent = on ? '♪ Music' : '♪ Muted';
+  musicBtn.style.opacity = on ? '' : '0.45';
+});
+// Auto-start on first user interaction anywhere on the page
+document.addEventListener('click', () => {
+  CatanMusic.start();
+  musicBtn.textContent = '♪ Music';
+}, { once: true });
 
 // ── Init board ────────────────────────────────────────────────────────────────
 
@@ -58,6 +73,8 @@ socket.on('gameState', newState => {
     window.location.href = '/';
     return;
   }
+
+  detectStealEvent(state, newState);
 
   // Auto-set UI mode based on phase change
   const isMeTurn = newState.playerIdx !== null && newState.currentPlayer === newState.playerIdx;
@@ -141,7 +158,7 @@ function phaseLabel() {
 // ── Player panels ─────────────────────────────────────────────────────────────
 
 function renderPlayers() {
-  const panel = document.getElementById('players-panel');
+  const panel = document.getElementById('player-cards');
   panel.innerHTML = '';
 
   state.players.forEach((p, i) => {
@@ -194,15 +211,11 @@ function renderHand() {
   const resDiv = document.getElementById('resource-display');
   resDiv.innerHTML = '';
   RESOURCES.forEach(r => {
-    const row = document.createElement('div');
-    row.className = 'res-row';
-    row.innerHTML = `
-      <span class="res-label">
-        <span class="res-icon" style="background:${RES_COLORS[r]}"></span>
-        ${RES_LABELS[r]}
-      </span>
-      <span>${me.resources[r]}</span>`;
-    resDiv.appendChild(row);
+    const item = document.createElement('div');
+    item.className = 'res-item' + (me.resources[r] === 0 ? ' zero' : '');
+    item.title = RES_LABELS[r];
+    item.innerHTML = `<span class="res-emoji">${RES_ICONS[r]}</span><span class="res-count">${me.resources[r]}</span>`;
+    resDiv.appendChild(item);
   });
 
   const devDiv = document.getElementById('dev-card-display');
@@ -213,8 +226,9 @@ function renderHand() {
     Object.entries(counts).forEach(([type, count]) => {
       const card = document.createElement('div');
       card.className = 'dev-card';
-      card.textContent = `${DEV_LABELS[type] || type}${count > 1 ? ` ×${count}` : ''}`;
-      if (type !== 'vp' && isMyTurn() && canPlayDevCard()) {
+      const canPlay = type !== 'vp' && isMyTurn() && canPlayDevCard();
+      card.innerHTML = `${DEV_ICONS[type] || ''} ${DEV_LABELS[type] || type}${count > 1 ? ` ×${count}` : ''}`;
+      if (canPlay) {
         card.title = 'Click to play';
         card.addEventListener('click', () => playDevCard(type));
       } else {
@@ -241,7 +255,7 @@ function renderActions() {
       buttons.appendChild(makeBtn('Discard', () => openDiscardModal(state.pendingDiscard[myIdx])));
     }
     // Show trade response if there's an offer for me
-    renderTradeResponse(buttons);
+    renderTradeResponse();
     return;
   }
 
@@ -321,11 +335,11 @@ function renderActions() {
     buttons.appendChild(makeBtn('🤝 Offer Trade', () => openOfferTradeModal()));
     buttons.appendChild(makeBtn('⏭ End Turn', () => { socket.emit('endTurn'); setUIMode('idle'); }, true));
 
-    renderTradeResponse(buttons);
+    renderTradeResponse();
   }
 }
 
-function renderTradeResponse(buttons) {
+function renderTradeResponse() {
   if (!state.tradeOffer || state.tradeOffer.from === myIdx) return;
   const offer = state.tradeOffer;
   const myResponse = offer.responses[myIdx];
@@ -719,6 +733,30 @@ function getPortRate(resource) {
     }
   }
   return best;
+}
+
+// ── Steal detection ───────────────────────────────────────────────────────────
+
+function detectStealEvent(prevState, newState) {
+  if (!prevState || newState.playerIdx === null) return;
+  const wasRobbing = prevState.phase === 'robber' || prevState.phase === 'robber-steal';
+  if (!wasRobbing) return;
+
+  const myI = newState.playerIdx;
+  const prev = prevState.players[myI]?.resources;
+  const next = newState.players[myI]?.resources;
+  if (!prev || !next) return;
+
+  const gained = RESOURCES.filter(r => next[r] > prev[r]);
+  const lost   = RESOURCES.filter(r => next[r] < prev[r]);
+
+  if (gained.length) {
+    const desc = gained.map(r => `${RES_ICONS[r]}×${next[r] - prev[r]}`).join(' ');
+    showToast(`You stole ${desc} 😈`);
+  } else if (lost.length) {
+    const desc = lost.map(r => `${RES_ICONS[r]}×${prev[r] - next[r]}`).join(' ');
+    showToast(`Robbed! Lost ${desc}`, true);
+  }
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
