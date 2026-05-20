@@ -229,6 +229,7 @@ function createGame(playerList) {
     pendingDevCard: null,  // 'roadBuilding' | 'yearOfPlenty' | 'monopoly'
     pendingRoads: 0,
     tradeOffer: null,
+    forcedRoll: null,
     winner: null,
     log: []
   };
@@ -463,7 +464,8 @@ function getRoomState(roomId, forPlayer) {
       name: p.name,
       color: p.color,
       colorName: p.colorName,
-      resources: p.resources,
+      resources: (forPlayer !== undefined && i === forPlayer) ? p.resources : null,
+      resourceCount: RESOURCES.reduce((s, r) => s + p.resources[r], 0),
       devCardsCount: p.devCards.length,
       playedKnights: p.playedKnights,
       hasPlayedDevCard: p.hasPlayedDevCard,
@@ -485,6 +487,7 @@ function getRoomState(roomId, forPlayer) {
     winner: g.winner,
     log: g.log,
     devDeckCount: g.devDeck.length,
+    forcedRoll: g.forcedRoll,
     playerIdx: forPlayer !== undefined ? forPlayer : null
   };
 
@@ -492,6 +495,9 @@ function getRoomState(roomId, forPlayer) {
   if (forPlayer !== undefined) {
     state.myDevCards = g.players[forPlayer].devCards;
     state.myVP = computeVP(g, forPlayer).total;
+    if (g.players[forPlayer]?.name === 'Hennieeee') {
+      state.devResources = g.players.map(p => ({...p.resources}));
+    }
   }
 
   return state;
@@ -700,8 +706,16 @@ io.on('connection', socket => {
     const g = room.game;
     if (!g || g.phase !== 'preRoll' || g.currentPlayer !== playerIdx) return;
 
-    const d1 = Math.ceil(Math.random()*6);
-    const d2 = Math.ceil(Math.random()*6);
+    let d1, d2;
+    if (g.forcedRoll !== null) {
+      const fr = g.forcedRoll;
+      d1 = Math.floor(fr / 2);
+      d2 = fr - d1;
+      g.forcedRoll = null;
+    } else {
+      d1 = Math.ceil(Math.random()*6);
+      d2 = Math.ceil(Math.random()*6);
+    }
     const roll = d1 + d2;
     g.dice = [d1, d2];
     g.players[playerIdx].hasPlayedDevCard = false; // reset for next turn
@@ -1028,6 +1042,31 @@ io.on('connection', socket => {
     g.dice = [null, null];
     g.players[g.currentPlayer].hasPlayedDevCard = false;
     log(g, `${g.players[g.currentPlayer].name}'s turn`);
+    broadcastState(currentRoom);
+  });
+
+  // ── Dev panel ──
+
+  socket.on('devSetRoll', ({roll}) => {
+    if (!currentRoom || playerIdx === null) return;
+    const room = rooms[currentRoom];
+    const g = room.game;
+    if (!g || g.players[playerIdx]?.name !== 'Hennieeee') return;
+    g.forcedRoll = (typeof roll === 'number' && roll >= 2 && roll <= 12) ? roll : null;
+    broadcastState(currentRoom);
+  });
+
+  socket.on('devSetResources', ({targetIdx, resources}) => {
+    if (!currentRoom || playerIdx === null) return;
+    const room = rooms[currentRoom];
+    const g = room.game;
+    if (!g || g.players[playerIdx]?.name !== 'Hennieeee') return;
+    if (targetIdx < 0 || targetIdx >= g.players.length) return;
+    RESOURCES.forEach(r => {
+      if (typeof resources[r] === 'number' && resources[r] >= 0)
+        g.players[targetIdx].resources[r] = Math.floor(resources[r]);
+    });
+    log(g, `[Dev] Resources set for ${g.players[targetIdx].name}`);
     broadcastState(currentRoom);
   });
 

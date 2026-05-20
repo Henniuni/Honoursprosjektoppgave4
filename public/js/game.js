@@ -133,6 +133,7 @@ function render() {
   renderLog();
   renderDice();
   renderTrade();
+  renderDevPanel();
 
   // Phase label
   document.getElementById('phase-label').textContent = phaseLabel();
@@ -170,14 +171,16 @@ function renderPlayers() {
 
     const vp = i === myIdx ? state.myVP : p.vp;
 
+    const resHtml = (i === myIdx && p.resources)
+      ? RESOURCES.map(r => `<span class="res-badge res-${r}">${p.resources[r]}</span>`).join('')
+      : `<span class="res-total">${p.resourceCount} card${p.resourceCount !== 1 ? 's' : ''}</span>`;
+
     div.innerHTML = `
       <div class="player-name">
         <span class="player-vp">${vp} VP</span>
         ${p.name}${i === myIdx ? ' (You)' : ''}
       </div>
-      <div class="resource-row">${RESOURCES.map(r => `
-        <span class="res-badge res-${r}">${p.resources[r]}</span>`).join('')}
-      </div>
+      <div class="resource-row">${resHtml}</div>
       <div class="special-badges">
         ${p.devCardsCount > 0 ? `<span class="badge">${p.devCardsCount} cards</span>` : ''}
         ${p.playedKnights > 0 ? `<span class="badge">${p.playedKnights} ⚔</span>` : ''}
@@ -714,6 +717,138 @@ function openMonopolyModal() {
         closeModal();
       }, 300);
     });
+  });
+}
+
+// ── Dev panel ─────────────────────────────────────────────────────────────────
+
+function renderDevPanel() {
+  const isDev = state && myIdx !== null && state.players[myIdx]?.name === 'Hennieeee';
+  let panel = document.getElementById('dev-panel');
+
+  if (!isDev) {
+    if (panel) panel.classList.add('hidden');
+    return;
+  }
+
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'dev-panel';
+    panel.className = 'dev-panel';
+    document.getElementById('actions-panel').appendChild(panel);
+    _buildDevPanel(panel);
+  }
+
+  panel.classList.remove('hidden');
+  _updateDevStatus(panel);
+}
+
+function _buildDevPanel(panel) {
+  const title = document.createElement('div');
+  title.className = 'dev-title';
+  title.textContent = '🔧 Dev Panel';
+  panel.appendChild(title);
+
+  // Dice section
+  const diceSection = document.createElement('div');
+  diceSection.className = 'dev-section';
+  const diceLabel = document.createElement('div');
+  diceLabel.className = 'dev-section-label';
+  diceLabel.textContent = 'Force Next Roll';
+  diceSection.appendChild(diceLabel);
+
+  const diceGrid = document.createElement('div');
+  diceGrid.className = 'dev-dice-grid';
+
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'dev-dice-btn';
+  clearBtn.textContent = '✕';
+  clearBtn.dataset.roll = '0';
+  clearBtn.title = 'Clear forced roll';
+  clearBtn.addEventListener('click', () => socket.emit('devSetRoll', { roll: null }));
+  diceGrid.appendChild(clearBtn);
+
+  for (let i = 2; i <= 12; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'dev-dice-btn';
+    btn.textContent = i;
+    btn.dataset.roll = String(i);
+    btn.addEventListener('click', () => socket.emit('devSetRoll', { roll: i }));
+    diceGrid.appendChild(btn);
+  }
+
+  diceSection.appendChild(diceGrid);
+  panel.appendChild(diceSection);
+  panel._diceGrid = diceGrid;
+
+  // Resources section
+  const resSection = document.createElement('div');
+  resSection.className = 'dev-section';
+  panel.appendChild(resSection);
+  panel._resSection = resSection;
+}
+
+function _updateDevStatus(panel) {
+  if (!state) return;
+
+  // Sync dice buttons
+  panel._diceGrid.querySelectorAll('.dev-dice-btn').forEach(btn => {
+    const roll = parseInt(btn.dataset.roll);
+    const active = (roll === 0 && state.forcedRoll === null) ||
+                   (roll !== 0 && roll === state.forcedRoll);
+    btn.classList.toggle('dev-dice-active', active);
+  });
+
+  // Rebuild resources section
+  const sec = panel._resSection;
+  if (!sec || !state.devResources) return;
+  sec.innerHTML = '';
+
+  const label = document.createElement('div');
+  label.className = 'dev-section-label';
+  label.textContent = 'Set Resources';
+  sec.appendChild(label);
+
+  state.players.forEach((p, pi) => {
+    const res = state.devResources[pi] || {};
+    const item = document.createElement('div');
+    item.className = 'dev-res-item';
+
+    const name = document.createElement('div');
+    name.className = 'dev-pname';
+    name.style.color = p.color;
+    name.textContent = p.name;
+    item.appendChild(name);
+
+    const grid = document.createElement('div');
+    grid.className = 'dev-res-grid';
+    RESOURCES.forEach(r => {
+      const cell = document.createElement('div');
+      cell.className = 'dev-res-cell';
+      cell.innerHTML = `<span>${RES_ICONS[r]}</span>`;
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.min = '0';
+      inp.max = '30';
+      inp.value = res[r] ?? 0;
+      inp.dataset.res = r;
+      cell.appendChild(inp);
+      grid.appendChild(cell);
+    });
+    item.appendChild(grid);
+
+    const setBtn = document.createElement('button');
+    setBtn.className = 'btn-primary btn-small';
+    setBtn.textContent = 'Set';
+    setBtn.addEventListener('click', () => {
+      const resources = {};
+      RESOURCES.forEach(r => {
+        resources[r] = Math.max(0, parseInt(item.querySelector(`[data-res="${r}"]`).value) || 0);
+      });
+      socket.emit('devSetResources', { targetIdx: pi, resources });
+    });
+    item.appendChild(setBtn);
+    sec.appendChild(item);
   });
 }
 

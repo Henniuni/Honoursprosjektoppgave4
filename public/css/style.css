@@ -115,6 +115,7 @@ input[type=text]:focus { border-color: var(--accent); }
 .res-wheat { background: var(--wheat); color: #333; }
 .res-ore   { background: var(--ore); }
 
+.res-total { font-size: 12px; color: var(--text2); }
 .special-badges { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
 .badge {
   font-size: 10px; padding: 1px 5px; border-radius: 3px;
@@ -284,6 +285,43 @@ input[type=number]:focus { border-color: var(--accent); }
 .tile-ore     { fill: #607080; }
 .tile-desert  { fill: #c8b560; }
 .tile-water   { fill: var(--water); }
+
+/* ── Dev panel ─────────────────────────────────────────────────────────────── */
+.dev-panel {
+  background: rgba(233,69,96,.08); border-radius: var(--radius);
+  padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  border: 1px solid rgba(233,69,96,.35);
+}
+.dev-title {
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.dev-section { display: flex; flex-direction: column; gap: 5px; }
+.dev-section-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2);
+}
+.dev-dice-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
+.dev-dice-btn {
+  padding: 4px 0; font-size: 12px; font-weight: 700;
+  background: var(--surface2); color: var(--text); border-radius: 4px;
+  border: 1px solid transparent;
+}
+.dev-dice-btn:hover { border-color: var(--accent); filter: none; }
+.dev-dice-active { background: var(--accent) !important; color: #fff !important; }
+.dev-res-item {
+  background: var(--surface2); border-radius: 6px; padding: 6px 8px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.dev-pname { font-size: 12px; font-weight: 700; }
+.dev-res-grid { display: flex; gap: 3px; }
+.dev-res-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 1;
+}
+.dev-res-cell span { font-size: 13px; line-height: 1.2; }
+.dev-res-cell input[type=number] {
+  width: 100%; min-width: 0; padding: 2px; font-size: 11px;
+  text-align: center; border-radius: 3px;
+}
 
 /* ── Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
