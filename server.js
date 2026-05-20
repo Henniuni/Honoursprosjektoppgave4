@@ -60,10 +60,9 @@ const NEIGHBOR_DIRS = [
   {dq:-1,dr:0},{dq:0,dr:-1},{dq:1,dr:-1}
 ];
 
-// [tileIndex, edgeDir] — verified border edges (clockwise from top)
+// [tileIndex, edgeDir] — 9 ports evenly spaced clockwise around the perimeter
 const PORT_EDGE_POSITIONS = [
-  [1, 4], [2, 5], [6, 0], [11, 1],
-  [15, 0], [18, 1], [16, 3], [12, 2], [7, 4]
+  [11,0], [15,1], [17,1], [16,2], [12,3], [3,3], [0,4], [1,5], [6,5]
 ];
 
 // ─── Board generation ─────────────────────────────────────────────────────────
