@@ -77,6 +77,41 @@ function shuffle(arr) {
   return a;
 }
 
+// Returns a Map(tileIndex → number) where 6/8 are never placed adjacent to each other.
+function generateValidNumbers(tiles) {
+  const tileIndex = new Map(tiles.map((t, i) => [`${t.q},${t.r}`, i]));
+  const tileAdj = tiles.map(t =>
+    NEIGHBOR_DIRS
+      .map(({dq, dr}) => tileIndex.get(`${t.q + dq},${t.r + dr}`))
+      .filter(n => n !== undefined)
+  );
+  const nonDesert = tiles.map((_, i) => i).filter(i => tiles[i].type !== 'desert');
+  const HOT = new Set([6, 8]);
+
+  for (let attempt = 0; attempt < 500; attempt++) {
+    const nums = shuffle(NUMBER_TOKENS);
+    const assign = new Map();
+    let ni = 0;
+    for (const ti of nonDesert) assign.set(ti, nums[ni++]);
+
+    let ok = true;
+    for (const [ti, n] of assign) {
+      if (HOT.has(n) && tileAdj[ti].some(aj => HOT.has(assign.get(aj)))) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) return assign;
+  }
+
+  // Fallback (virtually never reached)
+  const nums = shuffle(NUMBER_TOKENS);
+  const assign = new Map();
+  let ni = 0;
+  for (const ti of nonDesert) assign.set(ti, nums[ni++]);
+  return assign;
+}
+
 function generateBoard() {
   const tileSet = new Set(TILE_POSITIONS.map(({q,r}) => `${q},${r}`));
 
@@ -131,15 +166,17 @@ function generateBoard() {
     if (!vertices[v2].adjacentVertices.includes(v1)) vertices[v2].adjacentVertices.push(v1);
   }
 
-  // Assign tile types + number tokens
-  const types   = shuffle(TILE_DISTRIBUTION);
-  const numbers = shuffle(NUMBER_TOKENS);
-  let ni = 0, robberTile = 0;
+  // Assign tile types
+  const types = shuffle(TILE_DISTRIBUTION);
+  let robberTile = 0;
   tiles.forEach((t, i) => {
     t.type = types[i];
     if (t.type === 'desert') { t.hasRobber = true; robberTile = i; }
-    else t.number = numbers[ni++];
   });
+
+  // Assign number tokens — 6/8 guaranteed non-adjacent
+  const numberAssign = generateValidNumbers(tiles);
+  tiles.forEach((t, i) => { if (numberAssign.has(i)) t.number = numberAssign.get(i); });
 
   // Assign ports
   const portTypes = shuffle(PORT_TYPES);

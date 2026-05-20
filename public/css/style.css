@@ -177,21 +177,26 @@ input[type=text]:focus { border-color: var(--accent); }
 #log-list li { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
 
 /* ── SVG board elements ────────────────────────────────────────────── */
-.hex-tile { stroke: rgba(0,0,0,.3); stroke-width: 2; cursor: default; }
+.hex-tile { stroke: rgba(0,0,0,.45); stroke-width: 2; cursor: default; }
 .hex-tile.robber-tile { stroke: #fff; stroke-width: 3; }
 
-.hex-number {
-  font-size: 16px; font-weight: 800; text-anchor: middle; dominant-baseline: central;
+.hex-icon {
+  font-size: 18px; text-anchor: middle; dominant-baseline: central;
   pointer-events: none;
 }
-.hex-number.hot { fill: #e74c3c; } /* 6 and 8 */
 
-.number-circle { fill: #fffff0; stroke: #ccc; stroke-width: 1; }
+.hex-number {
+  font-size: 15px; font-weight: 900; text-anchor: middle; dominant-baseline: central;
+  pointer-events: none; fill: #222;
+}
+.hex-number.hot { fill: #c0200a; }
+
+.number-circle { fill: #fefce8; stroke: #d4c890; stroke-width: 1.5; }
 
 .hex-label {
-  font-size: 9px; text-anchor: middle; dominant-baseline: central;
-  fill: rgba(255,255,255,.7); pointer-events: none; text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 8.5px; text-anchor: middle; dominant-baseline: central;
+  fill: rgba(255,255,255,.75); pointer-events: none; text-transform: uppercase;
+  letter-spacing: 0.8px; font-weight: 600;
 }
 
 .vertex-dot {

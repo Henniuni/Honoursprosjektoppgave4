@@ -1,15 +1,19 @@
 'use strict';
 // SVG board renderer for Catan
 
-const SCALE = 72; // pixels per unit
+const SCALE = 72;
 const SVG_W = 660;
 const SVG_H = 700;
-const CX = SVG_W / 2;  // board center x
-const CY = SVG_H / 2 + 10;  // board center y (slight downward offset)
+const CX = SVG_W / 2;
+const CY = SVG_H / 2 + 10;
 
-const RESOURCE_COLORS = {
-  wood: '#4a7c2f', brick: '#b5451b', sheep: '#7cbb4a',
-  wheat: '#d4a017', ore: '#607080', desert: '#c8b560'
+const RESOURCE_GRAD = {
+  wood:   ['#72b84a', '#2d5c18'],
+  brick:  ['#d4622a', '#7a2808'],
+  sheep:  ['#96de5e', '#4a8820'],
+  wheat:  ['#f5cc40', '#907010'],
+  ore:    ['#8898ac', '#424f5c'],
+  desert: ['#e8d470', '#9a8438']
 };
 
 const RESOURCE_LABELS = {
@@ -17,12 +21,17 @@ const RESOURCE_LABELS = {
   wheat: 'Fields', ore: 'Mountains', desert: 'Desert'
 };
 
+const RESOURCE_ICONS = {
+  wood: '🌲', brick: '🧱', sheep: '🐑',
+  wheat: '🌾', ore: '⛰', desert: '🏜'
+};
+
 const PORT_COLORS = {
-  '3:1': '#e8d59a', wood: '#4a7c2f', brick: '#b5451b',
+  '3:1': '#d4b84a', wood: '#4a7c2f', brick: '#b5451b',
   sheep: '#7cbb4a', wheat: '#d4a017', ore: '#607080'
 };
 
-const DOT_COUNTS = { 2:1,3:2,4:2,5:3,6:4,8:4,9:3,10:2,11:2,12:1 };
+const DOT_COUNTS = { 2:1, 3:2, 4:2, 5:3, 6:4, 8:4, 9:3, 10:2, 11:2, 12:1 };
 
 class CatanBoard {
   constructor(svgEl) {
@@ -62,18 +71,68 @@ class CatanBoard {
     return el;
   }
 
+  _buildDefs() {
+    const defs = this._el('defs');
+
+    // Radial gradient per resource
+    for (const [res, [light, dark]] of Object.entries(RESOURCE_GRAD)) {
+      const g = this._el('radialGradient', { id: `grad-${res}`, cx: '38%', cy: '32%', r: '68%' });
+      const s1 = this._el('stop'); s1.setAttribute('offset', '0%');   s1.setAttribute('stop-color', light);
+      const s2 = this._el('stop'); s2.setAttribute('offset', '100%'); s2.setAttribute('stop-color', dark);
+      g.append(s1, s2);
+      defs.appendChild(g);
+    }
+
+    // Ocean radial gradient
+    const ocean = this._el('radialGradient', { id: 'grad-ocean', cx: '50%', cy: '50%', r: '72%' });
+    const o1 = this._el('stop'); o1.setAttribute('offset', '0%');   o1.setAttribute('stop-color', '#3498c0');
+    const o2 = this._el('stop'); o2.setAttribute('offset', '100%'); o2.setAttribute('stop-color', '#0e4a72');
+    ocean.append(o1, o2);
+    defs.appendChild(ocean);
+
+    // Drop shadow for number tokens
+    const shadow = this._el('filter', { id: 'token-shadow', x: '-40%', y: '-40%', width: '180%', height: '180%' });
+    const fds = this._el('feDropShadow', { dx: '0', dy: '2', stdDeviation: '2.5', 'flood-color': '#000', 'flood-opacity': '0.45' });
+    shadow.appendChild(fds);
+    defs.appendChild(shadow);
+
+    // Inset hex shadow (darkens edges of tiles slightly)
+    const hexShad = this._el('filter', { id: 'hex-inner' });
+    const fGauss = this._el('feGaussianBlur', { in: 'SourceAlpha', stdDeviation: '4', result: 'blur' });
+    const fComp  = this._el('feComposite',    { in: 'SourceGraphic', in2: 'blur', operator: 'over' });
+    hexShad.append(fGauss, fComp);
+    defs.appendChild(hexShad);
+
+    return defs;
+  }
+
   render(state, playerColors) {
     this._state = state;
     this.svg.innerHTML = '';
 
     const { tiles, vertices, edges, ports } = state.board;
 
-    // ── Water background ──
+    this.svg.appendChild(this._buildDefs());
+
+    // Ocean background
     this.svg.appendChild(this._el('rect', {
-      x: 0, y: 0, width: SVG_W, height: SVG_H, fill: '#1e6fa3'
+      x: 0, y: 0, width: SVG_W, height: SVG_H, fill: 'url(#grad-ocean)'
     }));
 
-    // ── Layer groups (order matters for z-index) ──
+    // Wave lines on water (decorative)
+    const waveLyr = this._el('g', { opacity: '0.12' });
+    for (let wy = 30; wy < SVG_H; wy += 28) {
+      const wave = this._el('path', { stroke: '#fff', 'stroke-width': '1.5', fill: 'none' });
+      let d = `M 0 ${wy}`;
+      for (let wx = 0; wx < SVG_W; wx += 40) {
+        d += ` q 10,-6 20,0 q 10,6 20,0`;
+      }
+      wave.setAttribute('d', d);
+      waveLyr.appendChild(wave);
+    }
+    this.svg.appendChild(waveLyr);
+
+    // Layer groups
     const tileLyr   = this._el('g');
     const portLyr   = this._el('g');
     const edgeLyr   = this._el('g');
@@ -91,48 +150,68 @@ class CatanBoard {
       }).join(' ');
 
       const hex = this._el('polygon', { points: pts }, 'hex-tile');
-      hex.style.fill = RESOURCE_COLORS[t.type] || '#888';
+      hex.style.fill = `url(#grad-${t.type})`;
       if (t.hasRobber) hex.classList.add('robber-tile');
 
       if (this.interactiveTiles.has(ti)) {
         hex.style.cursor = 'pointer';
-        hex.style.opacity = '0.85';
+        hex.style.opacity = '0.8';
         hex.addEventListener('click', () => this.onTileClick && this.onTileClick(ti));
       }
-
       tileLyr.appendChild(hex);
 
-      // Resource label
       const lx = this.px(t.cx), ly = this.py(t.cy);
+
       if (t.type !== 'desert') {
-        tileLyr.appendChild(this._el('text', { x: lx, y: ly - 22 }, 'hex-label'))
-          .textContent = RESOURCE_LABELS[t.type] || t.type;
-      } else {
-        tileLyr.appendChild(this._el('text', { x: lx, y: ly }, 'hex-label'))
-          .textContent = 'Desert';
-      }
+        // Resource icon (emoji)
+        const icon = this._el('text', { x: lx, y: ly - 26 }, 'hex-icon');
+        icon.textContent = RESOURCE_ICONS[t.type] || '';
+        tileLyr.appendChild(icon);
 
-      // Number token
-      if (t.number) {
-        const g = this._el('g');
-        const dots = DOT_COUNTS[t.number] || 0;
-        g.appendChild(this._el('circle', { cx: lx, cy: ly, r: 18 }, 'number-circle'));
-        const numTxt = this._el('text', { x: lx, y: ly + 1 }, 'hex-number');
-        if (t.number === 6 || t.number === 8) numTxt.classList.add('hot');
-        numTxt.textContent = t.number;
-        g.appendChild(numTxt);
+        // Resource label
+        tileLyr.appendChild(this._el('text', { x: lx, y: ly - 10 }, 'hex-label'))
+          .textContent = RESOURCE_LABELS[t.type];
 
-        // Probability dots
-        const dotSpacing = 5;
-        const startX = lx - ((dots - 1) * dotSpacing) / 2;
-        for (let d = 0; d < dots; d++) {
-          const dotEl = this._el('circle', {
-            cx: startX + d * dotSpacing, cy: ly + 13, r: 2
-          });
-          dotEl.style.fill = (t.number === 6 || t.number === 8) ? '#e74c3c' : '#555';
-          g.appendChild(dotEl);
+        // Number token
+        if (t.number) {
+          const g = this._el('g', { filter: 'url(#token-shadow)' });
+          const dots = DOT_COUNTS[t.number] || 0;
+          const hot = t.number === 6 || t.number === 8;
+
+          g.appendChild(this._el('circle', { cx: lx, cy: ly + 12, r: 20 }, 'number-circle'));
+
+          if (hot) {
+            // Subtle red rim on 6/8
+            g.appendChild(this._el('circle', {
+              cx: lx, cy: ly + 12, r: 20, fill: 'none',
+              stroke: '#e74c3c', 'stroke-width': '2.5'
+            }));
+          }
+
+          const numTxt = this._el('text', { x: lx, y: ly + 13 }, 'hex-number');
+          if (hot) numTxt.classList.add('hot');
+          numTxt.textContent = t.number;
+          g.appendChild(numTxt);
+
+          // Probability dots
+          const dotSpacing = 5.5;
+          const startX = lx - ((dots - 1) * dotSpacing) / 2;
+          for (let d = 0; d < dots; d++) {
+            const dot = this._el('circle', {
+              cx: startX + d * dotSpacing, cy: ly + 27, r: 2.2
+            });
+            dot.style.fill = hot ? '#e74c3c' : '#667';
+            g.appendChild(dot);
+          }
+          tileLyr.appendChild(g);
         }
-        tileLyr.appendChild(g);
+      } else {
+        // Desert: icon + label only, centered
+        const icon = this._el('text', { x: lx, y: ly - 6 }, 'hex-icon');
+        icon.textContent = RESOURCE_ICONS.desert;
+        tileLyr.appendChild(icon);
+        tileLyr.appendChild(this._el('text', { x: lx, y: ly + 12 }, 'hex-label'))
+          .textContent = 'Desert';
       }
     }
 
@@ -144,18 +223,38 @@ class CatanBoard {
       const x2 = this.px(v2.x), y2 = this.py(v2.y);
       const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
 
+      // Dock lines from each vertex endpoint outward toward ocean
       const pline = this._el('line', { x1, y1, x2, y2 }, 'port-line');
-      pline.style.stroke = PORT_COLORS[port.type] || '#fff';
+      pline.style.stroke = PORT_COLORS[port.type] || '#ccc';
       portLyr.appendChild(pline);
 
-      const bg = this._el('circle', { cx: mx, cy: my, r: 11, fill: PORT_COLORS[port.type] || '#fff', stroke: '#fff', 'stroke-width': 1 });
-      portLyr.appendChild(bg);
+      // Outer badge ring for contrast
+      portLyr.appendChild(this._el('circle', {
+        cx: mx, cy: my, r: 15,
+        fill: '#1a3a52', stroke: PORT_COLORS[port.type] || '#ccc', 'stroke-width': '2'
+      }));
+      // Colored fill circle
+      portLyr.appendChild(this._el('circle', {
+        cx: mx, cy: my, r: 12,
+        fill: PORT_COLORS[port.type] || '#ccc', opacity: '0.9'
+      }));
 
       const label = this._el('text', { x: mx, y: my + 1 }, 'port-label');
-      label.textContent = port.type === '3:1' ? '3:1' : `2:1`;
-      label.style.fill = port.type === 'wheat' ? '#333' : '#fff';
-      label.style.fontSize = '8px';
+      label.textContent = port.type === '3:1' ? '3:1' : '2:1';
+      const dark = port.type === 'wheat' || port.type === '3:1' || port.type === 'sheep';
+      label.style.fill = dark ? '#222' : '#fff';
+      label.style.fontSize = '9px';
+      label.style.fontWeight = '800';
       portLyr.appendChild(label);
+
+      // Small resource initial on port (below the ratio)
+      if (port.type !== '3:1') {
+        const sub = this._el('text', { x: mx, y: my + 10 }, 'port-label');
+        sub.textContent = port.type[0].toUpperCase();
+        sub.style.fill = dark ? '#333' : 'rgba(255,255,255,0.75)';
+        sub.style.fontSize = '7px';
+        portLyr.appendChild(sub);
+      }
     }
 
     // ── Edges (roads) ──
@@ -173,7 +272,7 @@ class CatanBoard {
         line.classList.add('interactive');
         line.addEventListener('click', () => this.onEdgeClick && this.onEdgeClick(e.id));
       } else {
-        line.style.stroke = 'rgba(255,255,255,0.07)';
+        line.style.stroke = 'rgba(0,0,0,0.18)';
       }
 
       edgeLyr.appendChild(line);
@@ -184,13 +283,10 @@ class CatanBoard {
       const vx = this.px(v.x), vy = this.py(v.y);
 
       if (v.building === 'settlement') {
-        const s = this._drawSettlement(vx, vy, playerColors[v.player]);
-        vertexLyr.appendChild(s);
+        vertexLyr.appendChild(this._drawSettlement(vx, vy, playerColors[v.player]));
       } else if (v.building === 'city') {
-        const c = this._drawCity(vx, vy, playerColors[v.player]);
-        vertexLyr.appendChild(c);
+        vertexLyr.appendChild(this._drawCity(vx, vy, playerColors[v.player]));
       } else {
-        // Interactive dot or invisible
         const dot = this._el('circle', { cx: vx, cy: vy, r: 6 }, 'vertex-dot');
         if (this.interactiveVertices.has(v.id)) {
           dot.classList.add('interactive');
@@ -206,32 +302,42 @@ class CatanBoard {
     // ── Robber ──
     if (state.robberTile !== undefined) {
       const t = tiles[state.robberTile];
-      const rx = this.px(t.cx), ry = this.py(t.cy);
-      const robber = this._drawRobber(rx, ry);
-      robberLyr.appendChild(robber);
+      robberLyr.appendChild(this._drawRobber(this.px(t.cx), this.py(t.cy)));
     }
   }
 
   _drawSettlement(cx, cy, color) {
     const g = this._el('g');
-    // House shape: square base + triangle roof
     const s = 10;
+    // Drop shadow
+    g.appendChild(this._el('rect', {
+      x: cx - s + 1, y: cy - s/2 + 2, width: s*2, height: s*1.2,
+      fill: 'rgba(0,0,0,0.3)', rx: 2
+    }));
     g.appendChild(this._el('rect', {
       x: cx - s, y: cy - s/2, width: s*2, height: s*1.2,
-      fill: color, stroke: '#fff', 'stroke-width': 1.5,
-      rx: 1
+      fill: color, stroke: '#fff', 'stroke-width': 1.5, rx: 1
     }));
     const pts = `${cx-s},${cy-s/2} ${cx},${cy-s*1.6} ${cx+s},${cy-s/2}`;
     g.appendChild(this._el('polygon', {
       points: pts, fill: color, stroke: '#fff', 'stroke-width': 1.5
+    }));
+    // Roof highlight
+    g.appendChild(this._el('polygon', {
+      points: `${cx-s+1},${cy-s/2-1} ${cx},${cy-s*1.6+2} ${cx+s-1},${cy-s/2-1}`,
+      fill: 'rgba(255,255,255,0.15)'
     }));
     return g;
   }
 
   _drawCity(cx, cy, color) {
     const g = this._el('g');
-    // Two-section city
     const w1 = 8, w2 = 12, h1 = 10, h2 = 16;
+    // Shadow
+    g.appendChild(this._el('rect', {
+      x: cx - w2 + 1, y: cy - h2/2 + 2, width: w2*2, height: h2,
+      fill: 'rgba(0,0,0,0.3)', rx: 2
+    }));
     g.appendChild(this._el('rect', {
       x: cx - w2, y: cy - h2/2, width: w2*2, height: h2,
       fill: color, stroke: '#fff', 'stroke-width': 1.5, rx: 1
@@ -252,17 +358,15 @@ class CatanBoard {
 
   _drawRobber(cx, cy) {
     const g = this._el('g');
-    // Skull-ish shape
     g.appendChild(this._el('circle', {
-      cx, cy: cy - 6, r: 10, fill: '#1a1a1a', stroke: '#fff', 'stroke-width': 1.5
+      cx, cy: cy - 6, r: 11, fill: '#1a1a1a', stroke: '#eee', 'stroke-width': 1.5
     }));
     g.appendChild(this._el('rect', {
-      x: cx - 7, y: cy + 1, width: 14, height: 8,
-      fill: '#1a1a1a', stroke: '#fff', 'stroke-width': 1.5, rx: 2
+      x: cx - 7, y: cy + 2, width: 14, height: 8,
+      fill: '#1a1a1a', stroke: '#eee', 'stroke-width': 1.5, rx: 2
     }));
-    // Eyes
-    g.appendChild(this._el('circle', { cx: cx-3.5, cy: cy-7, r: 2.5, fill: '#fff' }));
-    g.appendChild(this._el('circle', { cx: cx+3.5, cy: cy-7, r: 2.5, fill: '#fff' }));
+    g.appendChild(this._el('circle', { cx: cx-3.5, cy: cy-7, r: 2.5, fill: '#eee' }));
+    g.appendChild(this._el('circle', { cx: cx+3.5, cy: cy-7, r: 2.5, fill: '#eee' }));
     return g;
   }
 }
